@@ -112,6 +112,7 @@ define(['jquery',
                     _this.CONFIG.schema = $.parseJSON(response);
 
                 /* Initiate JSON editor. */
+                console.debug(JSON.stringify(_this.CONFIG.schema));
                 _this.create_editor();
 
             },
