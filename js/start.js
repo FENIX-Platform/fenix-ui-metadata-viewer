@@ -1,4 +1,4 @@
-/*global define, JSONEditor, swal, document */
+/*global define*/
 define(['jquery',
         'handlebars',
         'faostat_commons',
@@ -8,8 +8,9 @@ define(['jquery',
         'i18n!fenix_ui_metadata_viewer/nls/translate',
         'text!fenix_ui_metadata_viewer/config/application_settings.json',
         'sweetAlert',
-        'jsonEditor'], function ($, Handlebars, FAOSTATCommons, FAOSTAT_THEME, FENIX_UI_REPORTS,
-                     templates, translate, application_settings) {
+        'jsonEditor'
+        ], function ($, Handlebars, FAOSTATCommons, FAOSTAT_THEME, FENIX_UI_REPORTS,
+                     templates, translate, application_settings, sweetAlert) {
 
     'use strict';
 
@@ -30,8 +31,6 @@ define(['jquery',
             url_wds_table: 'http://fenixapps2.fao.org/wds_5.1/rest/table/json',
             url_d3s: 'http://faostat3.fao.org/d3s2/v2/msd/resources/metadata/uid',
             rendered: false,
-            metadata_sections: [],
-            editors: {},
 
             /* Events to destroy. */
             callback: {
@@ -55,18 +54,17 @@ define(['jquery',
      *
      * @param config Custom configuration in JSON format to extend the default settings.
      */
-    FUIMDV.prototype.init = function (config) {
+    FUIMDV.prototype.init = function(config) {
 
         /* Extend default configuration. */
         this.CONFIG = $.extend(true, {}, this.CONFIG, config);
 
         /* Fix the language, if needed. */
-        this.CONFIG.lang = this.CONFIG.lang !== null ? this.CONFIG.lang : 'en';
+        this.CONFIG.lang = this.CONFIG.lang != null ? this.CONFIG.lang : 'en';
 
         /* Cast application settings. */
-        if (typeof application_settings === 'string') {
+        if (typeof application_settings == 'string')
             application_settings = $.parseJSON(application_settings);
-        }
 
         /* Store FAOSTAT language. */
         this.CONFIG.lang_faostat = FAOSTATCommons.iso2faostat(this.CONFIG.lang);
@@ -77,26 +75,27 @@ define(['jquery',
         /* Extend string editor. */
         JSONEditor.defaults.editors.string = JSONEditor.defaults.editors.string.extend(this.custom_string_editor);
 
-        /* Load the structure. */
-        var source, template, dynamic_data, html;
-        source = $(templates).filter('#viewer_structure').html();
-        template = Handlebars.compile(source);
-        dynamic_data = {};
-        html = template(dynamic_data);
-        $('#' + this.CONFIG.placeholder_id).html(html);
+        /* This... */
+        var _this = this;
 
-        /* Store the container. */
-        //this.CONFIG.container = document.getElementById(this.CONFIG.placeholder_id);
+        /* Clear previous editor, if any. */
+        if (_this.CONFIG.hasOwnProperty('placeholder')) {
+            _this.CONFIG.container =  $(_this.CONFIG.placeholder);
+        } else {
+            _this.CONFIG.container =   $('#' + _this.CONFIG.placeholder_id);
+        }
+
+        _this.CONFIG.container.empty();
 
         /* Load the schema from DB, if needed. */
-        this.CONFIG.schema === null ? this.load_schema_from_db() : this.create_editor();
+        this.CONFIG.schema == null ? this.load_schema_from_db() : this.create_editor();
 
     };
 
-    FUIMDV.prototype.load_schema_from_db = function () {
+    FUIMDV.prototype.load_schema_from_db = function() {
 
         /* This... */
-        var that = this;
+        var _this = this;
 
         /* Load JSON schema. */
         $.ajax({
@@ -108,13 +107,12 @@ define(['jquery',
             success: function (response) {
 
                 /* Cast the result, if required. */
-                that.CONFIG.schema = response;
-                if (typeof that.CONFIG.schema === 'string') {
-                    that.CONFIG.schema = $.parseJSON(response);
-                }
+                _this.CONFIG.schema = response;
+                if (typeof _this.CONFIG.schema == 'string')
+                    _this.CONFIG.schema = $.parseJSON(response);
 
                 /* Initiate JSON editor. */
-                that.create_editor();
+                _this.create_editor();
 
             },
 
@@ -130,16 +128,41 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.create_editor = function () {
+    FUIMDV.prototype.remove_OjCodeLists = function (schema_property) {
+        var i, p;
+        /* Remove codelists. */
+        if (schema_property.$ref !== undefined && schema_property.$ref === '#/definitions/OjCodeList') {
+            schema_property.type = 'string';
+            delete schema_property.$ref;
+        }
+        /* Add better header for array children. */
+        if (schema_property.items !== undefined) {
+            schema_property.items.headerTemplate ='{{i1}}';
+        }
+        /* Remove maps. */
+        if (schema_property.patternProperties !== undefined) {
+            schema_property.type = 'string';
+            delete schema_property.patternProperties;
+        }
+        if (schema_property.properties !== undefined) {
+            for (i = 0; i < Object.keys(schema_property.properties).length; i += 1) {
+                p = schema_property.properties[Object.keys(schema_property.properties)[i]];
+                this.remove_OjCodeLists(p);
+            }
+        }
+    };
 
-        /* Variables. */
-        var source, template, dynamic_data, html, editor_config, q, metadata_section, local_settings;
+    FUIMDV.prototype.create_editor = function() {
 
         /* Refactor schema. */
         this.CONFIG.schema = this.refactor_schema(this.CONFIG.schema);
 
-        /* Common editor settings. */
-        editor_config = {
+        /* Simplify OjCodeLists objects. */
+        this.remove_OjCodeLists(this.CONFIG.schema);
+
+        /* Initiate JSON editor. */
+        var editor = new JSONEditor( this.CONFIG.container[0], {
+            schema: this.CONFIG.schema,
             theme: 'faostat_theme',
             iconlib: 'fontawesome4',
             disable_edit_json: true,
@@ -151,55 +174,36 @@ define(['jquery',
             disable_collapse: false,
             remove_empty_properties: false,
             expand_height: true
-        };
-
-        /* Initiate editors, one for each section. */
-        for (q = 0; q < this.CONFIG.metadata_sections.length; q += 1) {
-            metadata_section = this.CONFIG.metadata_sections[q];
-            this.CONFIG.editors[metadata_section] = {};
-            local_settings = $.extend(true, {}, editor_config);
-            local_settings.schema = this.CONFIG.schema[metadata_section];
-            try {
-                this.CONFIG.editors[metadata_section] = new JSONEditor(document.getElementById(metadata_section + '_placeholder'), local_settings);
-            } catch (ignore) {
-
-            }
-        }
+        });
 
         /* Remove unwanted labels. */
-        $(this.CONFIG.container).find('div:first').find('h3:first').empty();
-        $(this.CONFIG.container).find('div:first').find('p:first').empty();
+        this.CONFIG.container.find('div:first').find('h3:first').empty();
+        this.CONFIG.container.find('div:first').find('p:first').empty();
 
         /* Add Export to PDF button. */
-        source = $(templates).filter('#export_pdf_button_structure').html();
-        template = Handlebars.compile(source);
-        dynamic_data = {
+        var source = $(templates).filter('#export_pdf_button_structure').html();
+        var template = Handlebars.compile(source);
+        var dynamic_data = {
             export_pdf_label: translate.export_pdf_label
         };
-        html = template(dynamic_data);
-        $('#export_button_placeholder').html(html);
+        var html = template(dynamic_data);
+        $(this.CONFIG.container[0]).prepend(html);
 
         /* Bind listener. */
         this.export_pdf();
 
         /* Load data, if needed. */
-        if (this.CONFIG.data !== null) {
-            this.populate_editor();
-        } else {
-            this.load_data();
-        }
-        //this.CONFIG.data !== null ? this.populate_editor() : this.load_data();
+        this.CONFIG.data !== null ? this.populate_editor(editor) : this.load_data(editor);
 
     };
 
-    FUIMDV.prototype.export_pdf = function () {
+    FUIMDV.prototype.export_pdf = function() {
         $('#export_pdf_button').click({url_pdf_service: this.CONFIG.url_pdf_service,
                                        uid: this.CONFIG.domain,
                                        lang: this.CONFIG.lang,
-                                       filename: 'FAOSTAT_metadata_' + this.CONFIG.domain + '_' + this.CONFIG.lang + '.pdf'}, function (e) {
-            var url, payload, fenix_export;
-            url = e.data.url_pdf_service;
-            payload = {
+                                       filename: 'FAOSTAT_metadata_' + this.CONFIG.domain + '_' + this.CONFIG.lang + '.pdf'}, function(e) {
+            var url = e.data.url_pdf_service;
+            var payload = {
                 input: {
                     config: {
                         uid: e.data.uid
@@ -212,73 +216,56 @@ define(['jquery',
                     }
                 }
             };
-            fenix_export = new FENIX_UI_REPORTS();
+            var fenix_export = new FENIX_UI_REPORTS();
             fenix_export.init('metadataExport');
             fenix_export.exportData(payload, url);
         });
     };
 
-    FUIMDV.prototype.refactor_schema = function (json) {
-        var section_regex, properties, key, out = {}, q, metadata_section;
-        json.properties.meIdentification = {};
-        json.properties.meIdentification.propertyOrder = 1;
-        json.properties.meIdentification.type = 'object';
-        json.properties.meIdentification.title = translate.identification;
-        json.properties.meIdentification.properties = {};
-        section_regex = /[me]{2}[A-Z]/;
-        properties = json.properties;
-        for (key in properties) {
+    FUIMDV.prototype.refactor_schema = function(json) {
+        json['properties']['meIdentification'] = {};
+        json['properties']['meIdentification']['propertyOrder'] = 1;
+        json['properties']['meIdentification']['type'] = 'object';
+        json['properties']['meIdentification']['title'] = translate.identification;
+        json['properties']['meIdentification']['properties'] = {};
+        var section_regex = /[me]{2}[A-Z]/;
+        var properties = json.properties;
+        for (var key in properties) {
             if (!section_regex.test(key)) {
-                if (key === 'title') {
-                    json.properties.meIdentification.properties.title_fenix = json.properties[key];
+                if (key == 'title') {
+                    json['properties']['meIdentification']['properties']['title_fenix'] = json['properties'][key];
                 } else {
-                    json.properties.meIdentification.properties[key] = json.properties[key];
+                    json['properties']['meIdentification']['properties'][key] = json['properties'][key];
                 }
-                delete json.properties[key];
+                delete json['properties'][key];
             }
         }
-
-        /* Store metadata sections. */
-        for (q = 0; q < Object.keys(json.properties).length; q += 1) {
-            this.CONFIG.metadata_sections.push(Object.keys(json.properties)[q]);
-        }
-
-        /* Split the original schema in 7 sub-schemas. */
-        for (q = 0; q < this.CONFIG.metadata_sections.length; q += 1) {
-            metadata_section = this.CONFIG.metadata_sections[q];
-            out[metadata_section] = {};
-            out[metadata_section].$schema = json.$schema;
-            out[metadata_section].definitions = json.definitions;
-            out[metadata_section].type = 'object';
-            out[metadata_section].title = metadata_section.substring(2).toUpperCase();
-            out[metadata_section].properties = json.properties[metadata_section].properties;
-        }
-
-        /* Return object contains the sections of the metadata as separate JSON Schema objects. */
-        return out;
+        return json;
     };
 
-    FUIMDV.prototype.apply_settings = function (data) {
+    FUIMDV.prototype.apply_settings = function(data) {
 
         /* Apply application settings. */
-        var settings = application_settings[this.CONFIG.application_name],
-            key;
+        var settings = application_settings[this.CONFIG.application_name];
 
         /* Filter by blacklist... */
-        if (settings.blacklist !== null && settings.blacklist.length > 0) {
-            settings.blacklist.forEach(function (setting) {
+        if (settings['blacklist'] != null && settings['blacklist'].length > 0) {
+            settings['blacklist'].forEach(function(setting) {
                 try {
-                    delete data[setting.toString()];
-                } catch (ignore) {
+                    delete data[setting.toString()]
+                } catch (e) {
 
                 }
             });
-        } else {
-            for (key in data) {
-                if ($.inArray(key, settings.whitelist) < 0) {
+        }
+
+        /* ...or by whitelist. */
+        else {
+            for (var key in data) {
+                if ($.inArray(key, settings['whitelist']) < 0) {
                     try {
-                        delete data[key.toString()];
-                    } catch (ignore) {
+                        delete data[key.toString()]
+                    } catch (e) {
 
                     }
                 }
@@ -288,14 +275,13 @@ define(['jquery',
         return data;
     };
 
-    FUIMDV.prototype.load_data = function (editor) {
+    FUIMDV.prototype.load_data = function(editor) {
 
         /* This... */
-        var that = this,
-            d3s_id;
+        var _this = this;
 
         /* ID to be used for D3S. */
-        d3s_id = this.CONFIG.domain !== null ? this.CONFIG.domain : this.CONFIG.group;
+        var d3s_id = this.CONFIG.domain != null ? this.CONFIG.domain : this.CONFIG.group;
 
         /* Load JSON schema. */
         $.ajax({
@@ -307,17 +293,16 @@ define(['jquery',
             success: function (response) {
 
                 /* Cast the result, if required. */
-                that.CONFIG.data = response;
-                if (typeof that.CONFIG.data === 'string') {
-                    that.CONFIG.data = $.parseJSON(response);
-                }
+                _this.CONFIG.data = response;
+                if (typeof _this.CONFIG.data == 'string')
+                    _this.CONFIG.data = $.parseJSON(response);
 
                 /* Populate editor. */
-                that.populate_editor();
+                _this.populate_editor(editor);
 
             },
 
-            error: function (a) {
+            error: function (a, b, c) {
                 swal({
                     title: translate.error,
                     type: 'error',
@@ -329,54 +314,73 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.populate_editor = function () {
+    FUIMDV.prototype.remove_OjCodeListsData = function (schema_property, key, father) {
+        var i, p;
+        if (schema_property.EN !== undefined) {
+            father[key] = schema_property.EN;
+        }
+        if (schema_property.codes !== undefined && schema_property.codes[0] !== undefined) {
+            if (schema_property.codes[0].label) {
+                p = schema_property.codes[0].label.EN;
+            } else {
+                p = schema_property.codes[0].code;
+            }
+            father[key] = p;
+        } else {
+            for (i = 0; i < Object.keys(schema_property).length; i += 1) {
+                if (typeof schema_property[Object.keys(schema_property)[i]] === 'object') {
+                    this.remove_OjCodeListsData(schema_property[Object.keys(schema_property)[i]], Object.keys(schema_property)[i], schema_property);
+                }
+            }
+        }
+    };
 
-        /* Variables. */
-        var section_regex, properties, key, q, metadata_section;
+    FUIMDV.prototype.populate_editor = function(editor) {
 
         /* Apply application settings. */
         this.CONFIG.data = this.apply_settings(this.CONFIG.data);
 
+        /* Simplify OjCodeLists data. */
+        var i;
+        for (i = 0; i < Object.keys(this.CONFIG.data).length; i += 1) {
+            if (typeof this.CONFIG.data[Object.keys(this.CONFIG.data)[i]] === 'object') {
+                this.remove_OjCodeListsData(this.CONFIG.data[Object.keys(this.CONFIG.data)[i]], Object.keys(this.CONFIG.data)[i], this.CONFIG.data);
+            }
+        }
+
         /* Display the editor... */
-        if (this.CONFIG.data !== undefined) {
+        if (this.CONFIG.data != undefined) {
 
             /* Regular expression test to reorganize metadata sections. */
-            this.CONFIG.data.meIdentification = {};
-            section_regex = /[me]{2}[A-Z]/;
-            properties = this.CONFIG.data;
-            for (key in properties) {
+            this.CONFIG.data['meIdentification'] = {};
+            var section_regex = /[me]{2}[A-Z]/;
+            var properties = this.CONFIG.data;
+            for (var key in properties) {
                 if (!section_regex.test(key)) {
-                    if (key === 'title') {
-                        this.CONFIG.data.meIdentification.title_fenix = this.CONFIG.data[key];
+                    if (key == 'title') {
+                        this.CONFIG.data['meIdentification']['title_fenix'] = this.CONFIG.data[key];
                     } else {
-                        this.CONFIG.data.meIdentification[key] = this.CONFIG.data[key];
+                        this.CONFIG.data['meIdentification'][key] = this.CONFIG.data[key];
                     }
                     delete this.CONFIG.data[key];
                 }
             }
 
             /* Populate the editor. */
-            for (q = 0; q < this.CONFIG.metadata_sections.length; q += 1) {
-                try {
-                    metadata_section = this.CONFIG.metadata_sections[q];
-                    this.CONFIG.editors[metadata_section].setValue(this.CONFIG.data[metadata_section]);
-                } catch (ignore) {
-                }
-            }
+            if (this.CONFIG.data != null)
+                editor.setValue(this.CONFIG.data);
 
             /* Disable editing. */
-            if (!this.CONFIG.edit) {
-                for (q = 0; q < this.CONFIG.metadata_sections.length; q += 1) {
-                    metadata_section = this.CONFIG.metadata_sections[q];
-                    try {
-                        this.CONFIG.editors[metadata_section].disable();
-                        $('#' + metadata_section + '_placeholder').find('.btn.btn-default.json-editor-btn-collapse').click();
-                    } catch (ignore) {
-                    }
-                }
-            }
+            if (!this.CONFIG.edit)
+                editor.disable();
 
-        } else {
+            /* Collapse editor. */
+            this.CONFIG.container.find('.btn.btn-default.json-editor-btn-collapse').click();
+
+        }
+
+        /* ...or a courtesy message. */
+        else {
             this.display_courtesy_message();
         }
 
@@ -390,14 +394,13 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.display_courtesy_message = function () {
-        var source, template, dynamic_data, html;
-        source = $(templates).filter('#courtesy_message').html();
-        template = Handlebars.compile(source);
-        dynamic_data = {
+    FUIMDV.prototype.display_courtesy_message = function() {
+        var source = $(templates).filter('#courtesy_message').html();
+        var template = Handlebars.compile(source);
+        var dynamic_data = {
             message: translate.courtesy
         };
-        html = template(dynamic_data);
+        var html = template(dynamic_data);
         this.CONFIG.container.html(html);
     };
 
@@ -405,40 +408,37 @@ define(['jquery',
 
         setValue: function (value, initial, from_template) {
 
-            var d, sanitized, changed;
+            var self = this;
 
-            if (this.template && !from_template) {
+            if (this.template && !from_template)
                 return;
-            }
 
             if (value === null) {
                 value = '';
             } else if (typeof value === "object") {
                 value = JSON.stringify(value);
             } else if (typeof value !== "string") {
-                value = '' + value;
+                value = "" + value;
             }
 
             /* Convert milliseconds to valid date. */
-            if (this.format === 'date') {
+            if (this.format == 'date') {
                 try {
-                    d = new Date(parseFloat(value));
+                    var d = new Date(parseFloat(value));
                     value = d.toISOString().substring(0, 10);
-                } catch (ignore) {
+                } catch (e) {
 
                 }
             }
 
-            if (value === this.serialized) {
+            if (value === this.serialized)
                 return;
-            }
 
             /* Sanitize value before setting it */
-            sanitized = this.sanitize(value);
+            var sanitized = this.sanitize(value);
 
-            if (this.input.value === sanitized) {
+            if (this.input.value === sanitized)
                 return;
-            }
 
             this.input.value = sanitized;
 
@@ -451,7 +451,7 @@ define(['jquery',
                 this.ace_editor.setValue(sanitized);
             }
 
-            changed = from_template || this.getValue() !== value;
+            var changed = from_template || this.getValue() !== value;
 
             this.refreshValue();
 
@@ -461,9 +461,8 @@ define(['jquery',
                 this.is_dirty = true;
             }
 
-            if (this.adjust_height) {
+            if (this.adjust_height)
                 this.adjust_height(this.input);
-            }
 
             /* Bubble this setValue to parents if the value changed */
             this.onChange(changed);
