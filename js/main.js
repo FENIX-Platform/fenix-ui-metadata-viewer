@@ -1,4 +1,4 @@
-/*global require, document, console*/
+/*global require, document, console, JSONEditor*/
 require.config({
 
     baseUrl: 'js/libs',
@@ -20,25 +20,39 @@ require(['jquery',
          'text!JSON/schema.json',
          'text!JSON/data.json',
          'handlebars',
-         'alpaca'], function ($, schema, data) {
+         'alpaca',
+         'jsoneditor'], function ($, schema, data) {
 
     'use strict';
+
+    var editor;
 
     data = $.parseJSON(data);
     schema = $.parseJSON(schema);
 
-    console.debug('olá!');
-    console.debug(schema);
-    console.debug(data);
+    //$('#placeholder').alpaca({
+    //    schema: schema,
+    //    data: data,
+    //    view: 'bootstrap-display-horizontal',
+    //    options: {
+    //        collapsed: true,
+    //        collapsible: true
+    //    }
+    //});
 
-    $("#placeholder").alpaca({
+    editor = new JSONEditor(document.getElementById('placeholder'), {
         schema: schema,
-        data: data,
-        view: 'bootstrap-display-horizontal',
-        options: {
-            collapsed: true,
-            collapsible: true
-        }
+        theme: 'bootstrap3',
+        iconlib: 'fontawesome4',
+        disable_edit_json: true,
+        disable_properties: false,
+        collapsed: false,
+        disable_array_add: false,
+        disable_array_delete: false,
+        disable_array_reorder: false,
+        disable_collapse: false,
+        remove_empty_properties: false,
+        expand_height: true
     });
 
 });
