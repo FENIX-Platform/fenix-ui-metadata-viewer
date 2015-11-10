@@ -9,7 +9,20 @@
     </head>
 
     <body>
-        <div id='placeholder'></div>
+        <!--<div id='placeholder'>-->
+
+        <!--</div>-->
+        <form id="form1" runat="server" action="http://faostat3.fao.org/mdfaostat/getFullMD/default.aspx" method="post">
+            big md
+            <textarea id="MD" name="MD" cols="40" rows="40"></textarea>
+            lite mg
+            <textarea id="liteMD" name="liteMD" cols="40" rows="40"></textarea>
+            <br/>
+            <input type="text" id="domainCode" name="domainCode" value="GE"/>
+            <input type="text" id="lang" name="lang" value="EN"/>
+            <input type="text" id="User" name="User" value="massimiliano.solina@fao.org"/>
+            <input type="submit" value="carica Json"/>
+        </form>
     </body>
 
 </html>
