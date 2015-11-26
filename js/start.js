@@ -1,15 +1,18 @@
-/*global define, JSONEditor*/
+/*global define*/
+/* TODO: dividere il JOSN Schema in create_editor. */
+/* TODO: dividere i dati in populate_editor. */
 define(['jquery',
-    'handlebars',
-    'FAOSTAT_THEME',
-    'fx-report',
-    'text!fenix_ui_metadata_viewer/html/templates.hbs',
-    'i18n!fenix_ui_metadata_viewer/nls/translate',
-    'text!fenix_ui_metadata_viewer/config/application_settings.json',
-    'sweetAlert',
-    'jsonEditor'
-], function ($, Handlebars, FAOSTAT_THEME, FENIX_UI_REPORTS,
-             templates, translate, application_settings, swal) {
+        'handlebars',
+        'faostat_commons',
+        'FAOSTAT_THEME',
+        'fx-report',
+        'text!fenix_ui_metadata_viewer/html/templates.hbs',
+        'i18n!fenix_ui_metadata_viewer/nls/translate',
+        'text!fenix_ui_metadata_viewer/config/application_settings.json',
+        'sweetAlert',
+        'jsonEditor'
+        ], function ($, Handlebars, FAOSTATCommons, FAOSTAT_THEME, FENIX_UI_REPORTS,
+                     templates, translate, application_settings, sweetAlert) {
 
     'use strict';
 
@@ -22,6 +25,7 @@ define(['jquery',
             domain: 'GT',
             schema: null,
             data: null,
+            lang_faostat: 'E',
             application_name: 'faostat',
             placeholder_id: 'placeholder',
             url_mdsd: 'http://faostat3.fao.org/d3s2/v2/mdsd',
@@ -52,18 +56,20 @@ define(['jquery',
      *
      * @param config Custom configuration in JSON format to extend the default settings.
      */
-    FUIMDV.prototype.init = function (config) {
+    FUIMDV.prototype.init = function(config) {
 
         /* Extend default configuration. */
         this.CONFIG = $.extend(true, {}, this.CONFIG, config);
 
         /* Fix the language, if needed. */
-        this.CONFIG.lang = this.CONFIG.lang !== null ? this.CONFIG.lang : 'en';
+        this.CONFIG.lang = this.CONFIG.lang != null ? this.CONFIG.lang : 'en';
 
         /* Cast application settings. */
-        if (typeof application_settings === 'string') {
+        if (typeof application_settings == 'string')
             application_settings = $.parseJSON(application_settings);
-        }
+
+        /* Store FAOSTAT language. */
+        this.CONFIG.lang_faostat = FAOSTATCommons.iso2faostat(this.CONFIG.lang);
 
         /* Apply FAOSTAT theme for json-editor. */
         JSONEditor.defaults.themes.faostat_theme = JSONEditor.AbstractTheme.extend(FAOSTAT_THEME);
@@ -72,30 +78,26 @@ define(['jquery',
         JSONEditor.defaults.editors.string = JSONEditor.defaults.editors.string.extend(this.custom_string_editor);
 
         /* This... */
-        var that = this;
+        var _this = this;
 
         /* Clear previous editor, if any. */
-        if (that.CONFIG.hasOwnProperty('placeholder')) {
-            that.CONFIG.container =  $(that.CONFIG.placeholder);
+        if (_this.CONFIG.hasOwnProperty('placeholder')) {
+            _this.CONFIG.container =  $(_this.CONFIG.placeholder);
         } else {
-            that.CONFIG.container =   $('#' + that.CONFIG.placeholder_id);
+            _this.CONFIG.container =   $('#' + _this.CONFIG.placeholder_id);
         }
 
-        that.CONFIG.container.empty();
+        _this.CONFIG.container.empty();
 
         /* Load the schema from DB, if needed. */
-        if (this.CONFIG.schema === null) {
-            this.load_schema_from_db();
-        } else {
-            this.create_editor();
-        }
+        this.CONFIG.schema == null ? this.load_schema_from_db() : this.create_editor();
 
     };
 
-    FUIMDV.prototype.load_schema_from_db = function () {
+    FUIMDV.prototype.load_schema_from_db = function() {
 
         /* This... */
-        var that = this;
+        var _this = this;
 
         /* Load JSON schema. */
         $.ajax({
@@ -107,13 +109,12 @@ define(['jquery',
             success: function (response) {
 
                 /* Cast the result, if required. */
-                that.CONFIG.schema = response;
-                if (typeof that.CONFIG.schema === 'string') {
-                    that.CONFIG.schema = $.parseJSON(response);
-                }
+                _this.CONFIG.schema = response;
+                if (typeof _this.CONFIG.schema == 'string')
+                    _this.CONFIG.schema = $.parseJSON(response);
 
                 /* Initiate JSON editor. */
-                that.create_editor();
+                _this.create_editor();
 
             },
 
@@ -129,125 +130,117 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.create_editor = function () {
+    FUIMDV.prototype.create_editor = function() {
 
         /* Refactor schema. */
         this.CONFIG.schema = this.refactor_schema(this.CONFIG.schema);
 
         /* Initiate JSON editor. */
-        var editor = new JSONEditor(this.CONFIG.container[0], {
-                schema: this.CONFIG.schema,
-                theme: 'faostat_theme',
-                iconlib: 'fontawesome4',
-                disable_edit_json: true,
-                disable_properties: true,
-                collapsed: true,
-                disable_array_add: true,
-                disable_array_delete: true,
-                disable_array_reorder: true,
-                disable_collapse: false,
-                remove_empty_properties: false,
-                expand_height: true
-            }),
-            source,
-            template,
-            dynamic_data,
-            html;
+        var editor = new JSONEditor( this.CONFIG.container[0], {
+            schema: this.CONFIG.schema,
+            theme: 'faostat_theme',
+            iconlib: 'fontawesome4',
+            disable_edit_json: true,
+            disable_properties: true,
+            collapsed: true,
+            disable_array_add: true,
+            disable_array_delete: true,
+            disable_array_reorder: true,
+            disable_collapse: false,
+            remove_empty_properties: false,
+            expand_height: true
+        });
 
         /* Remove unwanted labels. */
         this.CONFIG.container.find('div:first').find('h3:first').empty();
         this.CONFIG.container.find('div:first').find('p:first').empty();
 
         /* Add Export to PDF button. */
-        source = $(templates).filter('#export_pdf_button_structure').html();
-        template = Handlebars.compile(source);
-        dynamic_data = {
+        var source = $(templates).filter('#export_pdf_button_structure').html();
+        var template = Handlebars.compile(source);
+        var dynamic_data = {
             export_pdf_label: translate.export_pdf_label
         };
-        html = template(dynamic_data);
+        var html = template(dynamic_data);
         $(this.CONFIG.container[0]).prepend(html);
 
         /* Bind listener. */
         this.export_pdf();
 
         /* Load data, if needed. */
-        if (this.CONFIG.data !== null) {
-            this.populate_editor(editor);
-        } else {
-            this.load_data(editor);
-        }
+        this.CONFIG.data !== null ? this.populate_editor(editor) : this.load_data(editor);
 
     };
 
-    FUIMDV.prototype.export_pdf = function () {
-        $('#export_pdf_button').off();
+    FUIMDV.prototype.export_pdf = function() {
         $('#export_pdf_button').click({url_pdf_service: this.CONFIG.url_pdf_service,
-            uid: this.CONFIG.domain,
-            lang: this.CONFIG.lang,
-            filename: 'FAOSTAT_metadata_' + this.CONFIG.domain + '_' + this.CONFIG.lang + '.pdf'}, function (e) {
-            var url = e.data.url_pdf_service,
-                payload = {
-                    input: {
-                        config: {
-                            uid: e.data.uid
-                        }
-                    },
-                    output: {
-                        config: {
-                            lang: e.data.lang.toUpperCase(),
-                            fileName: e.data.filename
-                        }
+                                       uid: this.CONFIG.domain,
+                                       lang: this.CONFIG.lang,
+                                       filename: 'FAOSTAT_metadata_' + this.CONFIG.domain + '_' + this.CONFIG.lang + '.pdf'}, function(e) {
+            var url = e.data.url_pdf_service;
+            var payload = {
+                input: {
+                    config: {
+                        uid: e.data.uid
                     }
                 },
-                fenix_export = new FENIX_UI_REPORTS();
+                output: {
+                    config: {
+                        lang: e.data.lang.toUpperCase(),
+                        fileName: e.data.filename
+                    }
+                }
+            };
+            var fenix_export = new FENIX_UI_REPORTS();
             fenix_export.init('metadataExport');
             fenix_export.exportData(payload, url);
         });
     };
 
-    FUIMDV.prototype.refactor_schema = function (json) {
-        json.properties.meIdentification = {};
-        json.properties.meIdentification.propertyOrder = 1;
-        json.properties.meIdentification.type = 'object';
-        json.properties.meIdentification.title = translate.identification;
-        json.properties.meIdentification.properties = {};
-        var section_regex = /[me]{2}[A-Z]/,
-            properties = json.properties,
-            key;
-        for (key in properties) {
+    FUIMDV.prototype.refactor_schema = function(json) {
+        json['properties']['meIdentification'] = {};
+        json['properties']['meIdentification']['propertyOrder'] = 1;
+        json['properties']['meIdentification']['type'] = 'object';
+        json['properties']['meIdentification']['title'] = translate.identification;
+        json['properties']['meIdentification']['properties'] = {};
+        var section_regex = /[me]{2}[A-Z]/;
+        var properties = json.properties;
+        for (var key in properties) {
             if (!section_regex.test(key)) {
-                if (key === 'title') {
-                    json.properties.meIdentification.properties.title_fenix = json.properties[key];
+                if (key == 'title') {
+                    json['properties']['meIdentification']['properties']['title_fenix'] = json['properties'][key];
                 } else {
-                    json.properties.meIdentification.properties[key] = json.properties[key];
+                    json['properties']['meIdentification']['properties'][key] = json['properties'][key];
                 }
-                delete json.properties[key];
+                delete json['properties'][key];
             }
         }
         return json;
     };
 
-    FUIMDV.prototype.apply_settings = function (data) {
+    FUIMDV.prototype.apply_settings = function(data) {
 
         /* Apply application settings. */
-        var settings = application_settings[this.CONFIG.application_name],
-            key;
+        var settings = application_settings[this.CONFIG.application_name];
 
         /* Filter by blacklist... */
-        if (settings.blacklist !== null && settings.blacklist.length > 0) {
-            settings.blacklist.forEach(function (setting) {
+        if (settings['blacklist'] != null && settings['blacklist'].length > 0) {
+            settings['blacklist'].forEach(function(setting) {
                 try {
-                    delete data[setting.toString()];
-                } catch (ignore) {
+                    delete data[setting.toString()]
+                } catch (e) {
 
                 }
             });
-        } else {
-            for (key in data) {
-                if ($.inArray(key, settings.whitelist) < 0) {
+        }
+
+        /* ...or by whitelist. */
+        else {
+            for (var key in data) {
+                if ($.inArray(key, settings['whitelist']) < 0) {
                     try {
-                        delete data[key.toString()];
-                    } catch (ignore) {
+                        delete data[key.toString()]
+                    } catch (e) {
 
                     }
                 }
@@ -257,11 +250,13 @@ define(['jquery',
         return data;
     };
 
-    FUIMDV.prototype.load_data = function (editor) {
+    FUIMDV.prototype.load_data = function(editor) {
 
         /* This... */
-        var that = this,
-            d3s_id = this.CONFIG.domain !== null ? this.CONFIG.domain : this.CONFIG.group;
+        var _this = this;
+
+        /* ID to be used for D3S. */
+        var d3s_id = this.CONFIG.domain != null ? this.CONFIG.domain : this.CONFIG.group;
 
         /* Load JSON schema. */
         $.ajax({
@@ -273,17 +268,16 @@ define(['jquery',
             success: function (response) {
 
                 /* Cast the result, if required. */
-                that.CONFIG.data = response;
-                if (typeof that.CONFIG.data === 'string') {
-                    that.CONFIG.data = $.parseJSON(response);
-                }
+                _this.CONFIG.data = response;
+                if (typeof _this.CONFIG.data == 'string')
+                    _this.CONFIG.data = $.parseJSON(response);
 
                 /* Populate editor. */
-                that.populate_editor(editor);
+                _this.populate_editor(editor);
 
             },
 
-            error: function (a) {
+            error: function (a, b, c) {
                 swal({
                     title: translate.error,
                     type: 'error',
@@ -295,44 +289,44 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.populate_editor = function (editor) {
+    FUIMDV.prototype.populate_editor = function(editor) {
 
         /* Apply application settings. */
         this.CONFIG.data = this.apply_settings(this.CONFIG.data);
 
         /* Display the editor... */
-        if (this.CONFIG.data !== undefined) {
+        if (this.CONFIG.data != undefined) {
 
             /* Regular expression test to reorganize metadata sections. */
-            this.CONFIG.data.meIdentification = {};
-            var section_regex = /[me]{2}[A-Z]/,
-                properties = this.CONFIG.data,
-                key;
-            for (key in properties) {
+            this.CONFIG.data['meIdentification'] = {};
+            var section_regex = /[me]{2}[A-Z]/;
+            var properties = this.CONFIG.data;
+            for (var key in properties) {
                 if (!section_regex.test(key)) {
-                    if (key === 'title') {
-                        this.CONFIG.data.meIdentification.title_fenix = this.CONFIG.data[key];
+                    if (key == 'title') {
+                        this.CONFIG.data['meIdentification']['title_fenix'] = this.CONFIG.data[key];
                     } else {
-                        this.CONFIG.data.meIdentification.key = this.CONFIG.data[key];
+                        this.CONFIG.data['meIdentification'][key] = this.CONFIG.data[key];
                     }
                     delete this.CONFIG.data[key];
                 }
             }
 
             /* Populate the editor. */
-            if (this.CONFIG.data !== null) {
+            if (this.CONFIG.data != null)
                 editor.setValue(this.CONFIG.data);
-            }
 
             /* Disable editing. */
-            if (!this.CONFIG.edit) {
+            if (!this.CONFIG.edit)
                 editor.disable();
-            }
 
             /* Collapse editor. */
             this.CONFIG.container.find('.btn.btn-default.json-editor-btn-collapse').click();
 
-        } else {
+        }
+
+        /* ...or a courtesy message. */
+        else {
             this.display_courtesy_message();
         }
 
@@ -346,13 +340,13 @@ define(['jquery',
 
     };
 
-    FUIMDV.prototype.display_courtesy_message = function () {
-        var source = $(templates).filter('#courtesy_message').html(),
-            template = Handlebars.compile(source),
-            dynamic_data = {
-                message: translate.courtesy
-            },
-            html = template(dynamic_data);
+    FUIMDV.prototype.display_courtesy_message = function() {
+        var source = $(templates).filter('#courtesy_message').html();
+        var template = Handlebars.compile(source);
+        var dynamic_data = {
+            message: translate.courtesy
+        };
+        var html = template(dynamic_data);
         this.CONFIG.container.html(html);
     };
 
@@ -360,43 +354,37 @@ define(['jquery',
 
         setValue: function (value, initial, from_template) {
 
-            var self = this,
-                d,
-                sanitized,
-                changed;
+            var self = this;
 
-            if (this.template && !from_template) {
+            if (this.template && !from_template)
                 return;
-            }
 
             if (value === null) {
                 value = '';
-            } else if (typeof value === 'object') {
+            } else if (typeof value === "object") {
                 value = JSON.stringify(value);
             } else if (typeof value !== "string") {
-                value = String(value);
+                value = "" + value;
             }
 
             /* Convert milliseconds to valid date. */
-            if (this.format === 'date') {
+            if (this.format == 'date') {
                 try {
-                    d = new Date(parseFloat(value));
+                    var d = new Date(parseFloat(value));
                     value = d.toISOString().substring(0, 10);
-                } catch (ignore) {
+                } catch (e) {
 
                 }
             }
 
-            if (value === this.serialized) {
+            if (value === this.serialized)
                 return;
-            }
 
             /* Sanitize value before setting it */
-            sanitized = this.sanitize(value);
+            var sanitized = this.sanitize(value);
 
-            if (this.input.value === sanitized) {
+            if (this.input.value === sanitized)
                 return;
-            }
 
             this.input.value = sanitized;
 
@@ -409,7 +397,7 @@ define(['jquery',
                 this.ace_editor.setValue(sanitized);
             }
 
-            changed = from_template || this.getValue() !== value;
+            var changed = from_template || this.getValue() !== value;
 
             this.refreshValue();
 
@@ -419,19 +407,14 @@ define(['jquery',
                 this.is_dirty = true;
             }
 
-            if (this.adjust_height) {
+            if (this.adjust_height)
                 this.adjust_height(this.input);
-            }
 
             /* Bubble this setValue to parents if the value changed */
             this.onChange(changed);
 
         }
 
-    };
-
-    FUIMDV.prototype.dispose = function () {
-        $('#export_pdf_button').off();
     };
 
     return FUIMDV;
