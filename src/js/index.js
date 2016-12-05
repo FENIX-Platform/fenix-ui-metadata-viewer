@@ -97,6 +97,8 @@ define([
 
         this.cache =  this.initial.cache || C.cache;
         this.environment = this.initial.environment || C.environment;
+        this.bridgeConfig = this.initial.bridge || {};
+        this.specialFields = this.initial.specialFields;
 
         this.config = $.extend(true, {}, C.config, this.initial.config);
         this.popover = $.extend(true, {}, C.popover, this.initial.popover);
@@ -145,7 +147,8 @@ define([
 
         this.modelCreator = new ModelCreator({
             data: this.model.hasOwnProperty("metadata") ? this.model.metadata : this.model,
-            lang: this.lang
+            lang: this.lang,
+            specialFields : this.specialFields
         });
 
         this.outputCreator = new OutputCreator({
@@ -159,10 +162,10 @@ define([
 
         });
 
-        this.bridge = new Bridge({
+        this.bridge = new Bridge($.extend(true, {
             environment: this.environment,
             cache: this.cache
-        });
+        }, this.bridgeConfig));
 
     };
 
@@ -174,7 +177,7 @@ define([
 
     MetadataViewer.prototype._getMDSD = function () {
 
-        return this.bridge.getMDSD();
+        return this.bridge.getMDSD(this.bridgeConfig);
     };
 
     MetadataViewer.prototype._onGetMDSDError = function (err) {

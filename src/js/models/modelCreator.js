@@ -1,6 +1,6 @@
 define([
     'jquery',
-    '../../config/specialMetadataAttributes.json',
+    '../../config/specialMetadataAttributes',
     'moment'
 ], function ($, SpecialFields, Moment) {
 
@@ -80,7 +80,7 @@ define([
         this.$properties = this.$mdsd.properties;
         this.$lang = this.o.lang.toLowerCase();
         this.$title = this._getTitleFromData();
-        this.$specialFields = SpecialFields;
+        this.$specialFields = this.o.specialFields || SpecialFields;
     };
 
     ModelCreator.prototype._startInternModelData = function () {

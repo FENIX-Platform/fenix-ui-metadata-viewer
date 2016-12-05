@@ -2,8 +2,9 @@ define([
     'loglevel',
     'jquery',
     '../../../src/js/index',
-    '../assets/uneca_population.json'
-], function (log, $, MetadataViewer, UnecaModel) {
+    '../assets/uneca_population.json',
+    '../assets/gift',
+], function (log, $, MetadataViewer, UnecaModel, GiftModel) {
 
     'use strict';
 
@@ -47,11 +48,37 @@ define([
         log.trace("Rendering standard metadata viewer: start");
 
         var metadataViewer = new MetadataViewer({
-            model: valid_model,
+            model: GiftModel,
             lang: lang,
             environment: environment,
             el: s.STANDARD,
+            specialFields : {
+                "metadataLanguage": true,
+                "language": true,
+                "characterSet": true,
+                "disseminationPeriodicity": true,
+                "confidentialityStatus": true,
+                "referencePeriod": true,
+                "referenceArea": true,
+                "coverageSectors": true,
+                "coverageGeographic": true,
+                "updatePeriodicity": true,
+                "projection": true,
+                "ellipsoid": true,
+                "datum": true,
+                "typeOfProduct": true,
+                "processing": true,
+                "topologyLevel": true,
+                "typeOfCollection": true,
+                "collectionPeriodicity": true,
+                "originOfCollectedData": true,
+                "dataAdjustment": true
+            },
             hideExportButton: false,
+            bridge : {
+                serviceProvider : "http://fenixrepo.fao.org/cdn/",
+                mdsdService : "mdsd/gift/mdsd.json"
+            },
             expandAttributesRecursively: ['meContent'],
             popover: {
                 placement: 'left'
