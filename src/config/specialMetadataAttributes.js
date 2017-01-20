@@ -1,0 +1,22 @@
+module.exports = {
+    "metadataLanguage": true,
+    "language": true,
+    "characterSet": true,
+    "disseminationPeriodicity": true,
+    "confidentialityStatus": true,
+    "referencePeriod": true,
+    "referenceArea": true,
+    "coverageSectors": true,
+    "coverageGeographic": true,
+    "updatePeriodicity": true,
+    "projection": true,
+    "ellipsoid": true,
+    "datum": true,
+    "typeOfProduct": true,
+    "processing": true,
+    "topologyLevel": true,
+    "typeOfCollection": true,
+    "collectionPeriodicity": true,
+    "originOfCollectedData": true,
+    "dataAdjustment": true
+};

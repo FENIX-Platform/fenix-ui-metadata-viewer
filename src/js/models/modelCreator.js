@@ -1,9 +1,6 @@
-if (typeof define !== 'function') {
-    var define = require('amdefine')(module);
-}
 define([
     'jquery',
-    'text!fx-md-v/config/specialMetadataAttributes.json',
+    '../../config/specialMetadataAttributes',
     'moment'
 ], function ($, SpecialFields, Moment) {
 
@@ -81,9 +78,9 @@ define([
 
         this.$definitions = this.$mdsd.definitions;
         this.$properties = this.$mdsd.properties;
-        this.$lang = this.o.lang;
+        this.$lang = this.o.lang.toLowerCase();
         this.$title = this._getTitleFromData();
-        this.$specialFields = JSON.parse(SpecialFields);
+        this.$specialFields = this.o.specialFields || SpecialFields;
     };
 
     ModelCreator.prototype._startInternModelData = function () {

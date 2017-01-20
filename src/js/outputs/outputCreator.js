@@ -1,16 +1,12 @@
-if (typeof define !== 'function') {
-    var define = require('amdefine')(module);
-}
-
 define([
     'jquery',
     'loglevel',
-    'fx-md-v/config/config',
-    'text!fx-md-v/html/template.hbs',
-    'fx-md-v/config/events',
-    'handlebars',
-    'treegrid'
-], function ($, log, C, Template, EVT, Handlebars) {
+    '../../config/config',
+    '../../config/events',
+    '../../html/template.hbs',
+    'amplify-pubsub',
+    'jquery-treegrid-webpack'
+], function ($, log, C, EVT, Template, amplify, treegrid) {
 
     'use strict';
 
@@ -57,6 +53,8 @@ define([
      */
     OutputCreator.prototype.render = function (model) {
 
+
+
         this.$visualizationData = this._transformDataToVisualizationModel(model.model, 'noParent', 0);
 
         this.$dataForTreeGRid = {'title_resource': model.title, 'data': this.$visualizationData, 'hideExportButton': this.hideExportButton};
@@ -65,13 +63,15 @@ define([
             this.$dataForTreeGRid.data = this._filterWhiteList();
         }
 
-        var templateToAdd = Handlebars.compile(Template);
+        var templateToAdd = Template;
         var $compiled = templateToAdd(this.$dataForTreeGRid);
 
         this.$el.empty();
         this.$el.append($compiled);
         var r = this.$el.find(this.o.s.table_container).treegrid(this.$treegridSettings);
 
+
+        
         if (r) {
             this._bindEventListeners();
             this._checkExpandNodesOptions();
