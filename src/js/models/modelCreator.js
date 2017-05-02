@@ -1,8 +1,9 @@
 define([
     'jquery',
+    'loglevel',
     '../../config/specialMetadataAttributes',
     'moment'
-], function ($, SpecialFields, Moment) {
+], function ($, log, SpecialFields, Moment) {
 
     'use strict';
 
@@ -71,6 +72,7 @@ define([
     };
 
     ModelCreator.prototype._getInternModelData = function () {
+
         return {'title': this.$title, 'model': this.$internDataModel};
     };
 
@@ -109,7 +111,7 @@ define([
             if (this.o.viewerOptions.isFenixMetadata && this._isASpecialAttribute(attribute)
                 && data[attribute] && data[attribute] != '' && data[attribute]['codes'] && data[attribute]['codes'].length > 0) {
 
-                result.push(this._handleFenixCodes(data, metadata, attribute));
+                    result.push(this._handleFenixCodes(data, metadata, attribute));
 
             } else {
 
@@ -123,6 +125,7 @@ define([
                         // 1: exists properties attribute
                         // 2: exists pattern properties
                         // 3: exists a reference
+
                         if (this._existsPropertiesAttribute(metadata[attribute])) {
                             var temporaryObject = {};
                             temporaryObject = this._addRecursiveModel(metadata[attribute], attribute);
@@ -169,7 +172,6 @@ define([
                             }
                             result.push(temporaryObject);
                         }
-
                     }
                 }
             }
@@ -177,9 +179,7 @@ define([
 
         counter--;
 
-        if (counter == -1) {
-            this.$internDataModel = result;
-        }
+        if (counter == -1) this.$internDataModel = result;
 
         return result;
     };
@@ -208,17 +208,17 @@ define([
     };
 
     ModelCreator.prototype._existsPropertiesAttribute = function (objectMetadata) {
-        return objectMetadata.hasOwnProperty(this.o.metadataOptions.PROPERTIES_ATTR) && Object.keys(objectMetadata[this.o.metadataOptions.PROPERTIES_ATTR]).length > 0
+        return objectMetadata.hasOwnProperty(this.o.metadataOptions.PROPERTIES_ATTR) && this._getObjectKeys(objectMetadata[this.o.metadataOptions.PROPERTIES_ATTR]).length > 0
     };
 
     ModelCreator.prototype._existsPatternProperties = function (objectMetadata) {
         return objectMetadata.hasOwnProperty(this.o.metadataOptions.PATTERN_PROPERTIES) &&
-            Object.keys(objectMetadata[this.o.metadataOptions.PATTERN_PROPERTIES]).length > 0
+            this._getObjectKeys(objectMetadata[this.o.metadataOptions.PATTERN_PROPERTIES]).length > 0
     };
 
     ModelCreator.prototype._existsAReference = function (objectMetadata) {
         return objectMetadata.hasOwnProperty(this.o.metadataOptions.REF_TYPE) &&
-            Object.keys(objectMetadata[this.o.metadataOptions.REF_TYPE]).length > 0
+            this._getObjectKeys(objectMetadata[this.o.metadataOptions.REF_TYPE]).length > 0
     };
 
     ModelCreator.prototype._isObjectAttribute = function (objectMetadata) {
@@ -289,7 +289,6 @@ define([
     };
 
     ModelCreator.prototype._fillTitle = function (metadata, attribute, result) {
-
         if (metadata[this.o.metadataOptions.TITLE_I18N] && metadata[this.o.metadataOptions.TITLE_I18N][this.$lang] && metadata[this.o.metadataOptions.TITLE_I18N][this.$lang] != '') {
             result[this.o.defaultOptions.TITLE_ATTRIBUTE] =
                 metadata[this.o.metadataOptions.TITLE_I18N][this.$lang].charAt(0).toUpperCase() +
@@ -304,7 +303,6 @@ define([
     };
 
     ModelCreator.prototype._fillDescription = function (metadata, attribute, result) {
-
         if (metadata[this.o.metadataOptions.DESC_I18N] && metadata[this.o.metadataOptions.DESC_I18N][this.$lang] && metadata[this.o.metadataOptions.DESC_I18N][this.$lang] != '') {
             result[this.o.defaultOptions.DESCRIPTION_ATTRIBUTE] =
                 metadata[this.o.metadataOptions.DESC_I18N][this.$lang];
@@ -316,7 +314,6 @@ define([
     };
 
     ModelCreator.prototype._isCaseBase = function (objectMetadata) {
-
         return objectMetadata.hasOwnProperty('type') && (
             objectMetadata[this.o.metadataOptions.TYPE_ATTRIBUTE] === this.o.metadataOptions.STRING_TYPE ||
             objectMetadata[this.o.metadataOptions.TYPE_ATTRIBUTE] === this.o.metadataOptions.NUMBER_TYPE ||
@@ -333,7 +330,7 @@ define([
     ModelCreator.prototype._isARefArrayItem = function (objectMetadata) {
         return objectMetadata.hasOwnProperty(this.o.metadataOptions.ITEMS_PROPERTIES) &&
             objectMetadata[this.o.metadataOptions.ITEMS_PROPERTIES][this.o.metadataOptions.REF_TYPE] &&
-            Object.keys(objectMetadata[this.o.metadataOptions.ITEMS_PROPERTIES][this.o.metadataOptions.REF_TYPE]).length > 0
+            this._getObjectKeys(objectMetadata[this.o.metadataOptions.ITEMS_PROPERTIES][this.o.metadataOptions.REF_TYPE]).length > 0
     };
 
     ModelCreator.prototype._isASpecialAttribute = function (attribute) {
@@ -375,6 +372,17 @@ define([
 
     ModelCreator.prototype._getAttributeFromReference = function (objectMetadata) {
         return objectMetadata[this.o.metadataOptions.REF_TYPE].substr(this.o.metadataOptions.SUBSTR_ROOT_DEFINITIONS)
+    };
+
+    // Override of Object.keys for compatibility with IE
+    ModelCreator.prototype._getObjectKeys = function (obj) {
+            var keys = [];
+
+            for (var i in obj) {
+                if (obj.hasOwnProperty(i)) keys.push(i);
+            }
+
+            return keys;
     };
 
     return ModelCreator;

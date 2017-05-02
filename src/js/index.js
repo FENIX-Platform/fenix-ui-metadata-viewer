@@ -189,7 +189,7 @@ define([
 
     MetadataViewer.prototype._onGetMDSDSuccess = function (mdsd) {
 
-        log.info("MDSD loaded successfully");
+        log.info("MDSD loaded successfully", mdsd);
 
         this.mdsd = mdsd;
 
@@ -199,6 +199,7 @@ define([
 
     MetadataViewer.prototype._render = function () {
 
+        log.info('Rendering...')
 
         this._processModel();
 
@@ -210,11 +211,17 @@ define([
 
     MetadataViewer.prototype._processModel = function () {
 
+        log.info('Process Model')
+
         this.outputModel = this.modelCreator.process(this.mdsd);
+
+        log.info( 'this.outputModel' , this.outputModel);
 
     };
 
     MetadataViewer.prototype._renderOutput = function () {
+
+        log.info('Render output')
 
         this.outputCreator.render(this.outputModel);
 

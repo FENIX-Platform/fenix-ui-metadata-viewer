@@ -59,7 +59,7 @@ define([
 
         this.$dataForTreeGRid = {'title_resource': model.title, 'data': this.$visualizationData, 'hideExportButton': this.hideExportButton};
 
-        if (Object.keys(this.$whitelist).length > 0) {
+        if (this._getObjectKeys(this.$whitelist).length > 0) {
             this.$dataForTreeGRid.data = this._filterWhiteList();
         }
 
@@ -221,6 +221,17 @@ define([
         this.$el.find(this.o.s.EXPORT).off();
 
         this.$el.off();
+    };
+
+    // Override of Object.keys for compatibility with IE
+    OutputCreator.prototype._getObjectKeys = function (obj) {
+        var keys = [];
+
+        for (var i in obj) {
+            if (obj.hasOwnProperty(i)) keys.push(i);
+        }
+
+        return keys;
     };
 
     return OutputCreator;
