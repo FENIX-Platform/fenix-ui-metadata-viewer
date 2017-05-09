@@ -1,6 +1,6 @@
 {
   "name": "fenix-ui-metadata-viewer",
-  "version": "3.0.0-beta.8",
+  "version": "3.0.0-beta.13",
   "description": "FENIX metadata viewer",
   "main": "src/js/index.js",
   "directories": {
@@ -33,7 +33,7 @@
   "homepage": "https://github.com/FENIX-Platform/fenix-ui-metadata-viewer#readme",
   "dependencies": {
     "amplify-pubsub": "^0.0.1",
-    "fenix-ui-bridge": "^1.0.0-beta.6",
+    "fenix-ui-bridge": "^1.0.0-beta.18",
     "file-loader": "^0.9.0",
     "jquery": "^3.1.0",
     "jquery-treegrid-webpack": "^0.0.2",
