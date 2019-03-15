@@ -109,6 +109,8 @@ define([
         this.expandAttributes = this.initial.expandAttributes || C.expandAttributes;
 
         this.hideExportButton = typeof this.initial.hideExportButton === 'boolean' ? this.initial.hideExportButton : C.hideExportButton;
+
+        this.serviceProvider = this.initial.serviceProvider || undefined;
         
     };
 
@@ -164,7 +166,8 @@ define([
 
         this.bridge = new Bridge($.extend(true, {
             environment: this.environment,
-            cache: this.cache
+            cache: this.cache,
+            serviceProvider : this.serviceProvider
         }, this.bridgeConfig));
 
     };
